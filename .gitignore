@@ -5,6 +5,8 @@ __pycache__/
 browser/
 logs/
 screenshots/
+data/notified.json
+data/history.csv
 .history/
 .vscode/
 .idea/
