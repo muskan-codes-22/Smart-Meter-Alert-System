@@ -1,7 +1,7 @@
 """SBPDCL Monitor - Entry Point.
 
 Production-ready application that monitors SBPDCL Smart Meter balance
-and sends WhatsApp notifications for low balance alerts.
+and sends Telegram notifications for low balance alerts.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from src.config import AppConfig, ConsumerConfig, load_config
 from src.logger import setup_logger, get_logger, log_exception
 from src.models import Consumer, BalanceResult
 from src.checker import SBPDCLChecker, SBPDCLException
-from src.whatsapp import WhatsAppSender, WhatsAppException
+from src.telegram import TelegramSender, TelegramException
 from src.state import NotificationStateManager
 from src.message_builder import build_notification_message
 from src.utils import (
@@ -116,40 +116,35 @@ def _save_history(
     append_csv_row(_HISTORY_FILE, row, headers=_HISTORY_HEADERS)
 
 
-def _send_whatsapp_notification(
-    whatsapp: WhatsAppSender,
+def _send_telegram_notification(
+    telegram: TelegramSender,
     consumer: Consumer,
     balance: float,
-    phone: str,
     language: str = "en",
 ) -> bool:
-    """Send WhatsApp notification for low balance.
+    """Send Telegram notification for low balance.
 
     Args:
-        whatsapp: WhatsApp sender instance.
+        telegram: Telegram sender instance.
         consumer: Consumer information.
         balance: Current balance value.
-        phone: Phone number for notification.
         language: Language code for the notification message.
 
     Returns:
         True if notification sent successfully.
     """
-    # Build consumer config for message builder
     consumer_config = ConsumerConfig(
         name=consumer.name,
         ca=consumer.ca,
         threshold=consumer.threshold,
-        whatsapp=consumer.whatsapp,
-        phone=phone,
+        chat_id=consumer.chat_id,
         language=language,
     )
 
     message = build_notification_message(consumer_config, balance)
 
-    return whatsapp.send_notification(
-        chat_name=consumer.whatsapp,
-        phone=phone,
+    return telegram.send_notification(
+        chat_id=consumer.chat_id,
         message=message,
     )
 
@@ -174,7 +169,7 @@ def run() -> int:
     try:
         config = load_config()
     except Exception as exc:
-        print(f"  ✗ Fatal: Could not load configuration: {exc}")
+        print(f"  Fatal: Could not load configuration: {exc}")
         return 1
 
     # ------------------------------------------------------------------
@@ -183,14 +178,26 @@ def run() -> int:
     setup_logger(config.log_level)
     logger = get_logger("main")
     logger.info("SBPDCL Monitor starting")
-    print(f"  ✓ Configuration loaded ({len(config.consumers)} consumers)")
+    print(f"  Configuration loaded ({len(config.consumers)} consumers)")
 
     # ------------------------------------------------------------------
-    # Step 3: Initialize services
+    # Step 3: Validate Telegram token
     # ------------------------------------------------------------------
     print("[2/6] Initializing services...")
+    if not config.telegram_bot_token:
+        print("  TELEGRAM_BOT_TOKEN not set in .env")
+        return 1
+
+    telegram = TelegramSender(config.telegram_bot_token)
+    try:
+        telegram.verify_token()
+        print("  Telegram bot verified")
+    except TelegramException as exc:
+        print(f"  Telegram verification failed: {exc}")
+        return 1
+
     state_manager = NotificationStateManager()
-    print("  ✓ State manager ready")
+    print("  State manager ready")
 
     # ------------------------------------------------------------------
     # Step 4: Launch checker browser
@@ -201,11 +208,11 @@ def run() -> int:
     try:
         checker = SBPDCLChecker(config)
         checker.launch_browser()
-        print("  ✓ SBPDCL checker browser ready")
+        print("  SBPDCL checker browser ready")
     except SBPDCLException as exc:
         logger.error("Failed to launch checker browser: {}", str(exc))
-        print(f"  ✗ Checker browser failed: {exc}")
-        print("  ✗ Cannot continue without checker browser")
+        print(f"  Checker browser failed: {exc}")
+        print("  Cannot continue without checker browser")
         return 1
 
     # ------------------------------------------------------------------
@@ -222,7 +229,7 @@ def run() -> int:
             name=consumer_config.name,
             ca=consumer_config.ca,
             threshold=consumer_config.threshold,
-            whatsapp=consumer_config.whatsapp,
+            chat_id=consumer_config.chat_id,
         )
 
         print(f"\n  [{idx}/{len(config.consumers)}] {consumer.name}")
@@ -230,7 +237,7 @@ def run() -> int:
 
         # Check balance
         if checker is None:
-            print("      ✗ Checker not available")
+            print("      Checker not available")
             failures += 1
             continue
 
@@ -238,7 +245,7 @@ def run() -> int:
             result = checker.check_balance(consumer)
         except SBPDCLException as exc:
             logger.error("Balance check failed for {}: {}", consumer.name, str(exc))
-            print(f"      ✗ Balance check failed: {exc}")
+            print(f"      Balance check failed: {exc}")
             _save_history(consumer, 0.0, False, "error")
             failures += 1
             continue
@@ -260,51 +267,24 @@ def run() -> int:
         notification_sent = False
 
         if should_notify:
-            print("      → Notification required")
+            print("      Notification required")
 
-            # Close checker browser first (Playwright can't run 2 browsers)
-            if checker is not None:
-                try:
-                    checker.close_browser()
-                except Exception:
-                    pass
-
-            # Launch WhatsApp browser and send notification
-            whatsapp: WhatsAppSender | None = None
             try:
-                whatsapp = WhatsAppSender(config)
-                whatsapp.launch_browser()
-                whatsapp.ensure_logged_in()
-
-                success = _send_whatsapp_notification(
-                    whatsapp, consumer, balance, consumer_config.phone,
+                success = _send_telegram_notification(
+                    telegram, consumer, balance,
                     language=consumer_config.language,
                 )
                 if success:
                     notification_sent = True
                     alerts_sent += 1
-                    print("      ✓ Alert sent!")
+                    print("      Alert sent!")
                 else:
-                    print("      ✗ WhatsApp send failed")
-            except WhatsAppException as exc:
-                logger.error("WhatsApp error for {}: {}", consumer.name, str(exc))
-                print(f"      ✗ WhatsApp error: {exc}")
-            finally:
-                # Always close WhatsApp browser after use
-                if whatsapp is not None:
-                    try:
-                        whatsapp.close_browser()
-                    except Exception:
-                        pass
-
-                # Re-launch checker browser for remaining consumers
-                if checker is not None and idx < len(config.consumers):
-                    try:
-                        checker.launch_browser()
-                    except Exception:
-                        pass
+                    print("      Telegram send failed")
+            except TelegramException as exc:
+                logger.error("Telegram error for {}: {}", consumer.name, str(exc))
+                print(f"      Telegram error: {exc}")
         else:
-            print("      → No notification needed")
+            print("      No notification needed")
 
         # Update state
         state_manager.update_state(
@@ -319,7 +299,7 @@ def run() -> int:
         _save_history(consumer, balance, notification_sent, status)
 
         processed += 1
-        print(f"      ✓ Complete")
+        print("      Complete")
 
     # ------------------------------------------------------------------
     # Step 6: Summary
@@ -333,9 +313,11 @@ def run() -> int:
     )
 
     # ------------------------------------------------------------------
-    # Cleanup: Close checker browser
+    # Cleanup
     # ------------------------------------------------------------------
-    print("[6/6] Closing browser...")
+    print("[6/6] Cleaning up...")
+
+    telegram.close()
 
     if checker is not None:
         try:

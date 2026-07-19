@@ -1,6 +1,6 @@
 """Notification state management module.
 
-Prevents duplicate WhatsApp notifications by tracking the notification
+Prevents duplicate notifications by tracking the notification
 state for each consumer. Persists state between program executions
 using data/notified.json.
 """
@@ -362,7 +362,7 @@ if __name__ == "__main__":
             name="Home",
             ca="1234567890",
             threshold=100.0,
-            whatsapp="Saved Messages",
+            chat_id="123456789",
         )
 
         print(f"\nConsumer: {consumer.name}")

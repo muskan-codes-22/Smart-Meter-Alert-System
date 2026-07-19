@@ -1,46 +1,45 @@
 # SBPDCL Monitor
 
-A production-ready application that monitors SBPDCL (South Bihar Power Distribution Company Limited) Smart Meter balance and sends WhatsApp notifications for low balance alerts.
+A production-ready application that monitors SBPDCL (South Bihar Power Distribution Company Limited) Smart Meter balance and sends Telegram notifications for low balance alerts.
 
 ## Features
 
-- **Automated Balance Checking**: Uses Playwright for browser automation to fetch meter balance
-- **WhatsApp Notifications**: Sends instant alerts via WhatsApp API when balance falls below threshold
-- **Multi-Consumer Support**: Monitor multiple meters from a single configuration
-- **State Management**: Prevents duplicate notifications and tracks notification history
-- **Logging**: Comprehensive logging with file rotation for debugging and audit
-- **Configurable Thresholds**: Set custom low balance thresholds per consumer
+- **Automated Balance Checking** — Uses Playwright for headless browser automation to fetch meter balance from the SBPDCL portal
+- **Telegram Notifications** — Sends instant alerts via Telegram Bot API when balance falls below threshold
+- **Multi-Consumer Support** — Monitor multiple meters from a single configuration
+- **State Management** — Prevents duplicate notifications and tracks notification history
+- **Scheduled Execution** — Runs automatically every 3 hours via Windows Task Scheduler (silent, no window)
+- **Configurable Thresholds** — Set custom low balance thresholds per consumer
+- **Multi-Language Messages** — Supports English and Hindi notification templates
 
 ## Folder Structure
 
 ```
 sbpdcl-monitor/
-│
 ├── src/
-│   ├── __init__.py          # Package initialization
-│   ├── checker.py           # Browser automation for balance checking
-│   ├── whatsapp.py          # WhatsApp notification handler
+│   ├── checker.py           # Playwright browser automation for balance checking
 │   ├── config.py            # Configuration management
-│   ├── logger.py            # Logging setup
-│   ├── state.py             # State management
-│   ├── models.py            # Data models
+│   ├── logger.py            # Logging setup with rotation
+│   ├── message_builder.py   # Multi-language message templates
+│   ├── models.py            # Data models (Consumer, BalanceResult, etc.)
+│   ├── state.py             # Notification state management
+│   ├── telegram.py          # Telegram Bot API sender
 │   └── utils.py             # Utility functions
 │
 ├── data/
 │   ├── consumers.json       # Consumer configuration
-│   ├── notified.json        # Notification tracking
+│   ├── notified.json        # Notification tracking state
 │   └── history.csv          # Balance history logs
 │
-├── browser/                 # Browser profile data (auto-created)
-├── logs/                    # Application logs
-├── screenshots/             # Debug screenshots
+├── logs/                    # Application and task scheduler logs
 ├── tests/                   # Unit tests
 │
+├── .env                     # Environment variables (bot token, chat_id, etc.)
 ├── .env.example             # Environment variables template
-├── .gitignore               # Git ignore rules
+├── run_hidden.ps1           # Silent runner for Task Scheduler
 ├── requirements.txt         # Python dependencies
-├── README.md                # Documentation
-└── main.py                  # Application entry point
+├── main.py                  # Application entry point
+└── README.md                # This file
 ```
 
 ## Installation
@@ -50,6 +49,7 @@ sbpdcl-monitor/
 - Python 3.10 or higher
 - pip (Python package manager)
 - Git
+- A Telegram bot (create via [@BotFather](https://t.me/BotFather))
 
 ### 1. Clone the Repository
 
@@ -62,14 +62,14 @@ cd sbpdcl-monitor
 
 ```bash
 # Create virtual environment
-python -m venv venv
+python -m venv .venv
 
 # Activate virtual environment
 # On Windows:
-venv\Scripts\activate
+.venv\Scripts\activate
 
 # On macOS/Linux:
-source venv/bin/activate
+source .venv/bin/activate
 ```
 
 ### 3. Install Dependencies
@@ -81,87 +81,173 @@ pip install -r requirements.txt
 ### 4. Install Playwright Browsers
 
 ```bash
-# Install Chromium browser (required for automation)
+# Install Chromium browser (required for SBPDCL portal automation)
 playwright install chromium
 
 # Install system dependencies (if needed)
 playwright install-deps
 ```
 
-### 5. Configure Environment Variables
+### 5. Create a Telegram Bot
+
+1. Open Telegram and search for [@BotFather](https://t.me/BotFather)
+2. Send `/newbot` and follow the prompts
+3. Copy the **bot token** you receive
+4. Message your new bot, then visit:
+   ```
+   https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates
+   ```
+5. Find your **chat_id** in the response (`result[0].message.chat.id`)
+
+### 6. Configure Environment Variables
+
+Copy the template and fill in your credentials:
 
 ```bash
-# Copy the example configuration
 cp .env.example .env
-
-# Edit .env with your credentials
-# Use your preferred text editor
 ```
+
+Edit `.env`:
+
+```env
+# Telegram Bot Configuration
+TELEGRAM_BOT_TOKEN=your_bot_token_here
+TELEGRAM_CHAT_ID=your_chat_id_here
+
+# SBPDCL Portal Configuration (if needed)
+SBPDCL_URL=https://www.sbpdcl.co.in
+
+# Browser Configuration
+HEADLESS=true
+DEFAULT_TIMEOUT=30000
+BROWSER_PROFILE=browser
+
+# Logging
+LOG_LEVEL=INFO
+```
+
+### 7. Configure Consumers
+
+Edit `data/consumers.json`:
+
+```json
+[
+    {
+        "name": "Nana - Shop",
+        "ca": "241111117048",
+        "threshold": 1000,
+        "language": "en"
+    }
+]
+```
+
+| Field | Description |
+|-------|-------------|
+| `name` | Human-readable consumer name |
+| `ca` | Consumer Account (CA) number from SBPDCL |
+| `threshold` | Low balance threshold (₹) — alert triggers below this |
+| `chat_id` | *(optional)* Override Telegram chat ID for this consumer |
+| `language` | `"en"` for English, `"hi"` for Hindi |
+
+If `chat_id` is omitted, the default from `TELEGRAM_CHAT_ID` in `.env` is used.
 
 ## Running the Project
 
 ```bash
 # Ensure virtual environment is activated
-# Run the application
 python main.py
 ```
 
-## Configuration
+### Sample Output
 
-### consumers.json
-
-Configure your meter details in `data/consumers.json`:
-
-```json
-{
-  "consumers": [
-    {
-      "id": "YOUR_CONSUMER_ID",
-      "name": "Your Name",
-      "meter_number": "YOUR_METER_NUMBER",
-      "phone": "+91XXXXXXXXXX",
-      "notify_threshold": 100.00
-    }
-  ]
-}
 ```
+============================================================
+  SBPDCL Monitor
+  Smart Meter Balance Monitoring System
+============================================================
+[1/6] Loading configuration...
+  Configuration loaded (1 consumers)
+[2/6] Initializing services...
+  Telegram bot verified
+  State manager ready
+[3/6] Launching browser...
+  SBPDCL checker browser ready
+[4/6] Checking balances...
+
+  [1/1] Nana - Shop
+      CA: XXXXXXXX7048
+      Balance: ₹448.58
+      Threshold: ₹1,000.00
+      Notification required
+      Alert sent!
+
+[5/6] Finalizing...
+[6/6] Cleaning up...
+
+============================================================
+  SBPDCL Monitor Summary
+------------------------------------------------------------
+  Consumers Processed : 1
+  Alerts Sent         : 1
+  Failures            : 0
+  Execution Time      : 11.6 sec
+============================================================
+```
+
+## Scheduling (Windows Task Scheduler)
+
+The application runs automatically every 3 hours via Windows Task Scheduler. No CMD window opens — it runs silently in the background.
+
+### Task Details
+
+| Property | Value |
+|----------|-------|
+| Task Name | `SBPDCL Monitor` |
+| Schedule | Every 3 hours (00:00, 03:00, 06:00, ...) |
+| Action | `powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File run_hidden.ps1` |
+| Log File | `logs/task_scheduler.log` |
+
+### Useful Commands
+
+```powershell
+# Run manually now
+schtasks /Run /TN "SBPDCL Monitor"
+
+# Check full task details (triggers, actions, settings)
+schtasks /Query /TN "SBPDCL Monitor" /V /FO LIST
+
+# Check status
+schtasks /Query /TN "SBPDCL Monitor"
+
+# Stop a running instance
+schtasks /End /TN "SBPDCL Monitor"
+
+# Delete the task
+schtasks /Delete /TN "SBPDCL Monitor" /F
+```
+
+## Configuration Reference
 
 ### Environment Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `WHATSAPP_API_URL` | WhatsApp Business API endpoint | - |
-| `WHATSAPP_API_TOKEN` | API authentication token | - |
-| `SBPDCL_URL` | SBPDCL portal URL | https://www.sbpdcl.co.in |
-| `CHECK_INTERVAL_MINUTES` | Balance check frequency | 60 |
-| `LOW_BALANCE_THRESHOLD` | Default low balance threshold | 100.00 |
-| `LOG_LEVEL` | Logging verbosity | INFO |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token from @BotFather | — |
+| `TELEGRAM_CHAT_ID` | Default Telegram chat ID for notifications | — |
+| `SBPDCL_URL` | SBPDCL portal URL | `https://www.sbpdcl.co.in` |
+| `HEADLESS` | Run browser in headless mode | `true` |
+| `DEFAULT_TIMEOUT` | Playwright timeout (ms) | `30000` |
+| `BROWSER_PROFILE` | Browser profile directory | `browser` |
+| `LOG_LEVEL` | Logging verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`) | `INFO` |
 
-## Future Modules
+### Notification Logic
 
-This project is designed for modular implementation. The following modules will be developed in subsequent phases:
-
-### Phase 2: Core Checker Module
-- Playwright browser automation
-- SBPDCL portal login
-- Balance extraction logic
-- Screenshot capture
-
-### Phase 3: WhatsApp Integration
-- WhatsApp Business API integration
-- Message template management
-- Notification retry mechanism
-
-### Phase 4: State & History
-- Consumer state tracking
-- History logging to CSV
-- Duplicate notification prevention
-
-### Phase 5: Advanced Features
-- Scheduled execution with cron/APScheduler
-- Multiple browser profiles
-- Email fallback notifications
-- Dashboard/reporting
+| Scenario | Action |
+|----------|--------|
+| First check, balance below threshold | Send alert |
+| Balance drops below threshold (was above) | Send alert |
+| Balance still below threshold (already notified) | Skip |
+| Balance recovers above threshold | Skip |
 
 ## Development
 
@@ -175,7 +261,7 @@ This project is designed for modular implementation. The following modules will 
 ### Testing
 
 ```bash
-# Run tests (when available)
+# Run tests
 pytest tests/
 
 # Run with coverage

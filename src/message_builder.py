@@ -18,26 +18,26 @@ from src.config import ConsumerConfig
 
 _MESSAGES: dict[str, dict[str, str]] = {
     "en": {
-        "title": "*⚡ SBPDCL Balance Alert*",
+        "title": "<b>\u26a1 SBPDCL Balance Alert</b>",
         "greeting": "Dear Consumer,",
         "body": "Your smart meter balance is running low.",
         "ca_label": "CA Number",
         "balance_label": "Available Balance",
         "action": (
-            "*⚠️ Please recharge your smart meter at the earliest to avoid "
-            "interruption in electricity supply.*"
+            "<b>\u26a0\ufe0f Please recharge your smart meter at the earliest to avoid "
+            "interruption in electricity supply.</b>"
         ),
-        "footer": "— SBPDCL Monitor",
+        "footer": "\u2014 SBPDCL Monitor",
     },
     "hi": {
-        "title": "*⚡ एसबीपीडीसीएल बैलेंस अलर्ट*",
+        "title": "<b>⚡ एसबीपीडीसीएल बैलेंस अलर्ट</b>",
         "greeting": "प्रिय उपभोक्ता,",
         "body": "आपके स्मार्ट मीटर का बैलेंस कम हो गया है।",
         "ca_label": "सीए नंबर",
         "balance_label": "उपलब्ध बैलेंस",
         "action": (
-            "*⚠️ कृपया बिजली आपूर्ति बाधित होने से बचने के लिए "
-            "जल्द से जल्द रिचार्ज कर लें।*"
+            "<b>⚠️ कृपया बिजली आपूर्ति बाधित होने से बचने के लिए "
+            "जल्द से जल्द रिचार्ज कर लें।</b>"
         ),
         "footer": "— SBPDCL Monitor",
     },
@@ -71,7 +71,7 @@ def build_notification_message(
         f"{t['greeting']}\n\n"
         f"{t['body']}\n\n"
         f"{t['ca_label']}: {consumer.ca}\n"
-        f"{t['balance_label']}: ₹{balance:.2f}\n\n"
+        f"{t['balance_label']}: <b>₹{balance:.2f}</b>\n\n"
         f"{t['action']}\n\n"
         f"{t['footer']}"
     )
@@ -93,8 +93,7 @@ if __name__ == "__main__":
         name="Test EN",
         ca="1234567890",
         threshold=1000,
-        whatsapp="test",
-        phone="+9100000000000",
+        chat_id="123456789",
         language="en",
     )
     print("\n[English]")
@@ -105,8 +104,7 @@ if __name__ == "__main__":
         name="Test HI",
         ca="1234567890",
         threshold=1000,
-        whatsapp="test",
-        phone="+9100000000000",
+        chat_id="123456789",
         language="hi",
     )
     print("\n[Hindi]")

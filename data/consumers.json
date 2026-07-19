@@ -1,11 +1,8 @@
 [
     {
-        "name": "Home",
+        "name": "Nana - Shop",
         "ca": "241111117048",
-        "threshold": 1000,
-        "whatsapp": "Saved Messages",
-        "phone": "+919871641546",
-        "language": "hi" 
-        
+        "threshold": 100,
+        "language": "en"
     }
 ]

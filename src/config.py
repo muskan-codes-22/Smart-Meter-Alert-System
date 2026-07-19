@@ -27,16 +27,14 @@ class ConsumerConfig:
         name: Human-readable name for the consumer.
         ca: Consumer Account (CA) number.
         threshold: Low balance threshold in kWh.
-        whatsapp: WhatsApp recipient identifier (chat name or phone).
-        phone: Phone number for direct WhatsApp messaging.
+        chat_id: Telegram chat ID for notifications.
         language: Language for notifications ("en" or "hi").
     """
 
     name: str
     ca: str
     threshold: float
-    whatsapp: str
-    phone: str = ""
+    chat_id: str
     language: str = "en"
 
 
@@ -49,6 +47,8 @@ class AppConfig:
         default_timeout: Default Playwright timeout in milliseconds.
         browser_profile: Path to the browser profile directory.
         log_level: Logging verbosity level.
+        telegram_bot_token: Telegram bot token from @BotFather.
+        telegram_chat_id: Default Telegram chat ID for notifications.
         consumers: List of consumer configurations to monitor.
     """
 
@@ -56,6 +56,8 @@ class AppConfig:
     default_timeout: int
     browser_profile: Path
     log_level: str
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
     consumers: List[ConsumerConfig] = field(default_factory=list)
 
 
@@ -111,7 +113,7 @@ def _validate_consumer(raw: dict, index: int) -> ConsumerConfig:
     label = raw.get("name") or f"consumer at index {index}"
 
     # --- required fields ---------------------------------------------------
-    missing = [k for k in ("name", "ca", "threshold", "whatsapp") if k not in raw]
+    missing = [k for k in ("name", "ca", "threshold") if k not in raw]
     if missing:
         raise ConfigError(
             f"Invalid consumer configuration: "
@@ -120,8 +122,7 @@ def _validate_consumer(raw: dict, index: int) -> ConsumerConfig:
 
     name: str = raw["name"]
     ca: str = str(raw["ca"]).strip()
-    whatsapp: str = str(raw["whatsapp"]).strip()
-    phone: str = str(raw.get("phone", "")).strip()
+    chat_id: str = str(raw.get("chat_id", "")).strip()
     language: str = str(raw.get("language", "en")).strip().lower()
 
     # Validate language
@@ -156,8 +157,7 @@ def _validate_consumer(raw: dict, index: int) -> ConsumerConfig:
         name=name,
         ca=ca,
         threshold=threshold,
-        whatsapp=whatsapp,
-        phone=phone,
+        chat_id=chat_id,
         language=language,
     )
 
@@ -259,11 +259,29 @@ def load_config(
         os.getenv("BROWSER_PROFILE", "browser")
     )
 
+    telegram_bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+    telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+
+    # Apply default chat_id from env to consumers without one
+    if telegram_chat_id:
+        consumers = [
+            ConsumerConfig(
+                name=c.name,
+                ca=c.ca,
+                threshold=c.threshold,
+                chat_id=c.chat_id or telegram_chat_id,
+                language=c.language,
+            )
+            for c in consumers
+        ]
+
     return AppConfig(
         headless=_env_bool("HEADLESS", False),
         default_timeout=_env_int("DEFAULT_TIMEOUT", 30000),
         browser_profile=browser_profile,
         log_level=os.getenv("LOG_LEVEL", "INFO").strip().upper(),
+        telegram_bot_token=telegram_bot_token,
+        telegram_chat_id=telegram_chat_id,
         consumers=consumers,
     )
 
@@ -280,13 +298,15 @@ if __name__ == "__main__":
         print(f"  Default timeout:   {cfg.default_timeout} ms")
         print(f"  Browser profile:   {cfg.browser_profile}")
         print(f"  Log level:         {cfg.log_level}")
+        print(f"  Telegram token:    {'set' if cfg.telegram_bot_token else 'not set'}")
+        print(f"  Telegram chat_id:  {cfg.telegram_chat_id or 'not set'}")
         print(f"  Consumers:         {len(cfg.consumers)}")
         for consumer in cfg.consumers:
             print(
                 f"    - {consumer.name} "
                 f"(CA: {consumer.ca}, "
                 f"threshold: {consumer.threshold}, "
-                f"whatsapp: {consumer.whatsapp})"
+                f"chat_id: {consumer.chat_id})"
             )
     except (ConfigError, FileNotFoundError) as exc:
         print(f"Configuration error: {exc}")

@@ -20,13 +20,13 @@ class Consumer:
         name: Human-readable consumer name.
         ca: Consumer Account (CA) number.
         threshold: Low balance threshold in kWh.
-        whatsapp: WhatsApp recipient identifier.
+        chat_id: Telegram chat ID for notifications.
     """
 
     name: str
     ca: str
     threshold: float
-    whatsapp: str
+    chat_id: str
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary.
@@ -50,7 +50,7 @@ class Consumer:
             name=data["name"],
             ca=str(data["ca"]),
             threshold=float(data["threshold"]),
-            whatsapp=data["whatsapp"],
+            chat_id=data["chat_id"],
         )
 
     def __str__(self) -> str:
