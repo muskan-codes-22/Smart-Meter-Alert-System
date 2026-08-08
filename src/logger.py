@@ -130,15 +130,17 @@ def setup_logger(log_level: str = "INFO") -> logger.__class__:
     # Remove default handler to allow reconfiguration
     logger.remove()
 
-    # Console handler - concise format
-    logger.add(
-        sys.stderr,
-        level=level,
-        format=_CONSOLE_FORMAT,
-        colorize=True,
-        backtrace=True,
-        diagnose=False,
-    )
+    # Console handler - skip when running from Task Scheduler (print only)
+    import os
+    if not os.getenv("SBPDCL_TASK_SCHEDULER"):
+        logger.add(
+            sys.stdout,
+            level=level,
+            format=_CONSOLE_FORMAT,
+            colorize=True,
+            backtrace=True,
+            diagnose=False,
+        )
 
     # File handler - detailed format with daily rotation
     log_file = _LOG_DIR / "{time:YYYY-MM-DD}.log"

@@ -23,6 +23,7 @@ from src.logger import setup_logger, get_logger, log_exception
 from src.models import Consumer, BalanceResult
 from src.checker import SBPDCLChecker, SBPDCLException
 from src.telegram import TelegramSender, TelegramException
+from src.email_notifier import EmailSender, EmailException
 from src.state import NotificationStateManager
 from src.message_builder import build_notification_message
 from src.utils import (
@@ -184,17 +185,34 @@ def run() -> int:
     # Step 3: Validate Telegram token
     # ------------------------------------------------------------------
     print("[2/6] Initializing services...")
-    if not config.telegram_bot_token:
-        print("  TELEGRAM_BOT_TOKEN not set in .env")
-        return 1
 
-    telegram = TelegramSender(config.telegram_bot_token)
-    try:
-        telegram.verify_token()
-        print("  Telegram bot verified")
-    except TelegramException as exc:
-        print(f"  Telegram verification failed: {exc}")
-        return 1
+    telegram: TelegramSender | None = None
+    telegram_available = False
+
+    if config.telegram_bot_token:
+        telegram = TelegramSender(config.telegram_bot_token)
+        try:
+            telegram.verify_token()
+            telegram_available = True
+            print("  Telegram bot verified")
+        except TelegramException as exc:
+            logger.warning("Telegram verification failed (will use email fallback): {}", str(exc))
+            print(f"  Telegram verification failed (will use email fallback)")
+            telegram = None
+    else:
+        print("  TELEGRAM_BOT_TOKEN not set (will use email fallback)")
+
+    email_sender: EmailSender | None = None
+    if config.email_address and config.email_password and config.receiver_email:
+        try:
+            email_sender = EmailSender(
+                config.email_address,
+                config.email_password,
+                config.receiver_email,
+            )
+            print("  Email fallback configured")
+        except EmailException as exc:
+            print(f"  Email setup failed (non-fatal): {exc}")
 
     state_manager = NotificationStateManager()
     print("  State manager ready")
@@ -269,20 +287,52 @@ def run() -> int:
         if should_notify:
             print("      Notification required")
 
-            try:
-                success = _send_telegram_notification(
-                    telegram, consumer, balance,
-                    language=consumer_config.language,
-                )
-                if success:
+            if telegram and telegram_available:
+                try:
+                    success = _send_telegram_notification(
+                        telegram, consumer, balance,
+                        language=consumer_config.language,
+                    )
+                    if success:
+                        notification_sent = True
+                        alerts_sent += 1
+                        print("      Alert sent!")
+                    else:
+                        print("      Telegram send failed")
+                        if email_sender:
+                            try:
+                                email_sender.send_telegram_block_notification(
+                                    consumer.name, balance,
+                                    error_detail="Telegram returned False",
+                                )
+                                print("      Fallback email sent!")
+                            except EmailException as email_exc:
+                                print(f"      Fallback email also failed: {email_exc}")
+                except TelegramException as exc:
+                    logger.error("Telegram error for {}: {}", consumer.name, str(exc))
+                    print(f"      Telegram error: {exc}")
+                    if email_sender:
+                        try:
+                            email_sender.send_telegram_block_notification(
+                                consumer.name, balance,
+                                error_detail=str(exc),
+                            )
+                            print("      Fallback email sent!")
+                        except EmailException as email_exc:
+                            print(f"      Fallback email also failed: {email_exc}")
+            elif email_sender:
+                try:
+                    email_sender.send_telegram_block_notification(
+                        consumer.name, balance,
+                        error_detail="Telegram not available",
+                    )
                     notification_sent = True
                     alerts_sent += 1
-                    print("      Alert sent!")
-                else:
-                    print("      Telegram send failed")
-            except TelegramException as exc:
-                logger.error("Telegram error for {}: {}", consumer.name, str(exc))
-                print(f"      Telegram error: {exc}")
+                    print("      Alert sent via email!")
+                except EmailException as email_exc:
+                    print(f"      Email fallback also failed: {email_exc}")
+            else:
+                print("      No Telegram or email available for notification")
         else:
             print("      No notification needed")
 
@@ -317,7 +367,10 @@ def run() -> int:
     # ------------------------------------------------------------------
     print("[6/6] Cleaning up...")
 
-    telegram.close()
+    telegram.close() if telegram else None
+
+    if email_sender:
+        pass  # EmailSender has no persistent state to clean up
 
     if checker is not None:
         try:

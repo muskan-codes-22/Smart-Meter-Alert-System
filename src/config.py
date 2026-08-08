@@ -58,6 +58,9 @@ class AppConfig:
     log_level: str
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
+    email_address: str = ""
+    email_password: str = ""
+    receiver_email: str = ""
     consumers: List[ConsumerConfig] = field(default_factory=list)
 
 
@@ -261,6 +264,9 @@ def load_config(
 
     telegram_bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
     telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+    email_address = os.getenv("EMAIL_ADDRESS", "").strip()
+    email_password = os.getenv("EMAIL_PASSWORD", "").strip()
+    receiver_email = os.getenv("RECEIVER_EMAIL", "").strip()
 
     # Apply default chat_id from env to consumers without one
     if telegram_chat_id:
@@ -282,6 +288,9 @@ def load_config(
         log_level=os.getenv("LOG_LEVEL", "INFO").strip().upper(),
         telegram_bot_token=telegram_bot_token,
         telegram_chat_id=telegram_chat_id,
+        email_address=email_address,
+        email_password=email_password,
+        receiver_email=receiver_email,
         consumers=consumers,
     )
 
@@ -300,6 +309,8 @@ if __name__ == "__main__":
         print(f"  Log level:         {cfg.log_level}")
         print(f"  Telegram token:    {'set' if cfg.telegram_bot_token else 'not set'}")
         print(f"  Telegram chat_id:  {cfg.telegram_chat_id or 'not set'}")
+        print(f"  Email address:     {'set' if cfg.email_address else 'not set'}")
+        print(f"  Receiver email:    {cfg.receiver_email or 'not set'}")
         print(f"  Consumers:         {len(cfg.consumers)}")
         for consumer in cfg.consumers:
             print(

@@ -102,7 +102,7 @@ class TelegramSender:
         try:
             resp = self._session.get(
                 self._api_url("/getMe"),
-                timeout=_TIMEOUT_REQUEST,
+                timeout=5,
             )
             data = resp.json()
 

@@ -425,9 +425,6 @@ class SBPDCLChecker:
             # Extract balance
             balance = self._extract_balance(page)
 
-            # Take success screenshot
-            screenshot_path = self._take_screenshot(page, "balance", "success")
-
             duration = time_mod.perf_counter() - start_time
             logger.info(
                 "Balance check completed for {} in {:.2f}s: ₹{:.2f}",

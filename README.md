@@ -7,7 +7,7 @@
 [![Telegram Bot API](https://img.shields.io/badge/Messaging-Telegram-26A5E4.svg)](https://core.telegram.org/bots/api)
 [![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-Automated prepaid smart meter balance monitoring for South Bihar Power Distribution Company (SBPDCL) with intelligent Telegram alerts, persistent notification state, and scheduled background execution.
+Automated prepaid smart meter balance monitoring for South Bihar Power Distribution Company (SBPDCL) with intelligent Telegram alerts, email fallback, persistent notification state, and scheduled background execution.
 
 ---
 
@@ -21,7 +21,7 @@ Although payment applications such as Google Pay, PhonePe, and Paytm support rec
 
 **This project automates that entire process.**
 
-Running silently every two hours using Windows Task Scheduler, it retrieves the latest balance from the SBPDCL portal through browser automation and immediately sends Telegram alerts whenever the balance falls below a configured threshold.
+Running silently every hour using Windows Task Scheduler, it retrieves the latest balance from the SBPDCL portal through browser automation and immediately sends Telegram alerts (or email fallback if Telegram is unavailable) whenever the balance falls below a configured threshold.
 
 ---
 
@@ -30,6 +30,7 @@ Running silently every two hours using Windows Task Scheduler, it retrieves the 
 - Automated smart meter balance monitoring
 - Playwright-based browser automation
 - Instant Telegram notifications
+- Email fallback when Telegram is blocked/unavailable
 - Configurable low balance thresholds
 - Multi-consumer monitoring
 - Duplicate notification prevention
@@ -73,6 +74,26 @@ Supports both:
 
 - English
 - Hindi
+
+### Email Fallback
+
+If Telegram is blocked, unavailable, or the bot is removed from the chat, the application automatically sends an HTML-formatted email alert instead. This ensures notifications are never missed.
+
+The email includes:
+
+- Consumer name and current balance
+- Error details from the Telegram failure
+- Clear action prompt to recharge
+
+Configured via three environment variables:
+
+```env
+EMAIL_ADDRESS=your_gmail@gmail.com
+EMAIL_PASSWORD=your_gmail_app_password
+RECEIVER_EMAIL=recipient@example.com
+```
+
+> **Note:** Use a [Gmail App Password](https://support.google.com/accounts/answer/185833), not your regular Gmail password.
 
 ### Multi Consumer Support
 
@@ -135,7 +156,7 @@ This enables future reporting and balance trend analysis.
 
 ### Scheduled Background Execution
 
-Designed to run every 2 hours via Windows Task Scheduler. Requires manual setup of the scheduled task (see [Windows Task Scheduler](#windows-task-scheduler)).
+Designed to run every hour via Windows Task Scheduler. Requires manual setup of the scheduled task (see [Windows Task Scheduler](#windows-task-scheduler)).
 
 ---
 
@@ -147,6 +168,7 @@ sbpdcl-monitor/
 ├── src/
 │   ├── checker.py           # Playwright browser automation for balance checking
 │   ├── config.py            # Configuration management
+│   ├── email_notifier.py    # Email fallback (Gmail SMTP)
 │   ├── logger.py            # Logging setup with rotation
 │   ├── message_builder.py   # Multi-language message templates
 │   ├── models.py            # Data models (Consumer, BalanceResult, etc.)
@@ -162,7 +184,7 @@ sbpdcl-monitor/
 ├── logs/                    # Application and task scheduler logs
 ├── tests/                   # Unit tests
 │
-├── .env                     # Environment variables (bot token, chat_id, etc.)
+├── .env                     # Environment variables (bot token, chat_id, email, etc.)
 ├── .env.example             # Environment variables template
 ├── run_hidden.ps1           # Silent runner for Task Scheduler
 ├── requirements.txt         # Python dependencies
@@ -186,8 +208,12 @@ sbpdcl-monitor/
           │                               │
           ▼                               ▼
      Playwright Checker ─────────► Telegram Bot
-          │
-          ▼
+          │                               │
+          │                          (on failure)
+          │                               │
+          │                               ▼
+          │                       Email Fallback
+          ▼                        (Gmail SMTP)
      SBPDCL Portal
           │
           ▼
@@ -203,6 +229,7 @@ sbpdcl-monitor/
 | Language         | Python 3.10+            |
 | Browser Automation | Playwright            |
 | Messaging        | Telegram Bot API        |
+| Email Fallback   | Gmail SMTP (SSL)        |
 | Scheduler        | Windows Task Scheduler  |
 | Configuration    | JSON + dotenv           |
 | Logging          | Python Logging          |
@@ -283,6 +310,11 @@ Edit `.env`:
 TELEGRAM_BOT_TOKEN=your_bot_token_here
 TELEGRAM_CHAT_ID=your_chat_id_here
 
+# Email Fallback (Gmail)
+EMAIL_ADDRESS=your_gmail@gmail.com
+EMAIL_PASSWORD=your_gmail_app_password
+RECEIVER_EMAIL=recipient@example.com
+
 # Browser Configuration
 HEADLESS=true
 DEFAULT_TIMEOUT=30000
@@ -335,6 +367,7 @@ python main.py
   Configuration loaded (1 consumers)
 [2/6] Initializing services...
   Telegram bot verified
+  Email fallback configured
   State manager ready
 [3/6] Launching browser...
   SBPDCL checker browser ready
@@ -360,6 +393,23 @@ python main.py
 ============================================================
 ```
 
+When Telegram is unavailable, the app continues with email fallback:
+
+```
+[2/6] Initializing services...
+  Telegram verification failed (will use email fallback)
+  Email fallback configured
+  State manager ready
+...
+[4/6] Checking balances...
+
+  [1/1] Home
+      Balance: ₹448.58
+      Threshold: ₹500.00
+      Notification required
+      Alert sent via email!
+```
+
 ---
 
 ## Windows Task Scheduler
@@ -373,7 +423,7 @@ Open Task Scheduler and create a new task with the following settings:
 | Property | Value |
 |----------|-------|
 | Task Name | `SBPDCL Monitor` |
-| Schedule | Every 2 hours |
+| Schedule | Every hour |
 | Action | Start a program |
 | Program | `powershell.exe` |
 | Arguments | `-ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\PK\Projects\sbpdcl-monitor\run_hidden.ps1"` |
@@ -381,7 +431,7 @@ Open Task Scheduler and create a new task with the following settings:
 Alternatively, create the task via command line:
 
 ```powershell
-schtasks /Create /TN "SBPDCL Monitor" /TR "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File \"C:\PK\Projects\sbpdcl-monitor\run_hidden.ps1\"" /SC HOURLY /MO 2
+schtasks /Create /TN "SBPDCL Monitor" /TR "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File \"C:\PK\Projects\sbpdcl-monitor\run_hidden.ps1\"" /SC HOURLY /MO 1
 ```
 
 ### Useful Commands
@@ -434,7 +484,6 @@ logs/
 - GitHub Actions scheduling
 - Recharge prediction using historical usage
 - Monthly balance analytics dashboard
-- SMS and Email notifications
 - WhatsApp integration
 - Web dashboard
 - Cloud deployment (AWS Lambda / Azure Functions)
