@@ -518,11 +518,11 @@ if __name__ == "__main__":
         # Get first consumer
         consumer_data = config.consumers[0]
         consumer = Consumer(
-            name=consumer_data.name,
-            ca=consumer_data.ca,
-            threshold=consumer_data.threshold,
-            whatsapp=consumer_data.whatsapp,
-        )
+    name=consumer_data.name,
+    ca=consumer_data.ca,
+    threshold=consumer_data.threshold,
+    chat_id=consumer_data.chat_id,
+)
 
         print(f"\nConsumer: {consumer.name}")
         print(f"CA Number: {mask_ca_number(consumer.ca)}")
