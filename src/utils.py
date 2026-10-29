@@ -9,6 +9,7 @@ from __future__ import annotations
 import csv
 import functools
 import json
+import re
 import time
 import time as time_mod
 from datetime import date, datetime
@@ -68,15 +69,68 @@ def format_currency(amount: float, symbol: str = "₹") -> str:
         symbol: Currency symbol. Defaults to '₹'.
 
     Returns:
-        Formatted currency string (e.g., '₹83.40').
+        Formatted currency string (e.g., '₹83.40', '-₹269.51').
 
     Examples:
         >>> format_currency(83.4)
         '₹83.40'
+        >>> format_currency(-269.51)
+        '-₹269.51'
         >>> format_currency(1234.5)
-        '₹1234.50'
+        '₹1,234.50'
     """
+    if amount < 0:
+        return f"-{symbol}{abs(amount):,.2f}"
     return f"{symbol}{amount:,.2f}"
+
+
+def parse_balance_string(text: str) -> Optional[float]:
+    """Parse a balance value from text, handling negative signs, currency symbols, and commas.
+
+    Supports:
+        -₹269.51, - ₹269.51, ₹-269.51, ₹ -269.51, -269.51
+        ₹568.07, 568.07, ₹1,000.00
+        Unicode minuses (-, −, –, —).
+
+    Args:
+        text: String containing the balance amount.
+
+    Returns:
+        Float balance amount (positive or negative), or None if unparseable.
+
+    Examples:
+        >>> parse_balance_string("-₹269.51")
+        -269.51
+        >>> parse_balance_string("₹568.07")
+        568.07
+    """
+    if not text:
+        return None
+
+    normalized = (
+        str(text)
+        .replace("\u2212", "-")
+        .replace("\u2013", "-")
+        .replace("\u2014", "-")
+        .replace("\ufe63", "-")
+        .replace("\uff0d", "-")
+        .strip()
+    )
+
+    match = re.search(
+        r"(-)?\s*(?:[₹]|Rs\.?|INR)?\s*(-)?\s*(\d[\d,]*(?:\.\d+)?)",
+        normalized,
+        re.IGNORECASE,
+    )
+    if match:
+        num_str = match.group(3).replace(",", "").strip()
+        try:
+            amount = float(num_str)
+            is_negative = bool(match.group(1) or match.group(2))
+            return -amount if is_negative else amount
+        except ValueError:
+            return None
+    return None
 
 
 def mask_ca_number(ca: str, visible_chars: int = 4) -> str:
@@ -322,24 +376,27 @@ def append_csv_row(
 # ---------------------------------------------------------------------------
 
 def is_valid_balance(balance: Any) -> bool:
-    """Check if a balance value is valid (non-negative number).
+    """Check if a balance value is valid (can be converted to a numeric float).
 
     Args:
         balance: Value to validate.
 
     Returns:
-        True if balance is a non-negative number.
+        True if balance is a valid numeric value (positive or negative).
 
     Examples:
         >>> is_valid_balance(83.4)
         True
         >>> is_valid_balance(-10)
-        False
+        True
         >>> is_valid_balance("invalid")
         False
     """
+    if balance is None or isinstance(balance, bool):
+        return False
     try:
-        return float(balance) >= 0
+        float(balance)
+        return True
     except (TypeError, ValueError):
         return False
 

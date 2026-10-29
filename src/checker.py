@@ -27,6 +27,7 @@ from src.utils import (
     ensure_directory,
     generate_screenshot_name,
     mask_ca_number,
+    parse_balance_string,
     retry,
 )
 
@@ -48,7 +49,7 @@ _SELECTOR_CA_INPUT = "input#mat-input-0"
 _SELECTOR_SEARCH_BUTTON = 'button:has-text("Search")'
 _SELECTOR_INVALID_CA_ERROR = 'text="Invalid CA number"'
 _SELECTOR_BALANCE_TEXT = "text=/Available Balance/i"
-_SELECTOR_BALANCE_VALUE = ".bill-amount, .balance-amount, [class*=balance]"
+_SELECTOR_BALANCE_VALUE = ".bill-amount, .balance-amount, [class*=balance], .red-block, span.red-block"
 _SELECTOR_AVAILABLE_BALANCE = 'text="Available Balance(Rs)"'
 
 # Retry configuration
@@ -271,7 +272,8 @@ class SBPDCLChecker:
         """Extract the available balance amount from the results page.
 
         Specifically targets "Available Balance(Rs)" field which contains
-        the current available balance for prepaid meters.
+        the current available balance for prepaid meters (handles both positive
+        and negative balances, e.g. -₹269.51).
 
         Args:
             page: Playwright page instance.
@@ -292,40 +294,62 @@ class SBPDCLChecker:
         page_text = page.inner_text("body")
         logger.debug("Page text length: {} chars", len(page_text))
 
+        # Normalize unicode dashes/minuses across page text
+        normalized_page_text = (
+            page_text.replace("\u2212", "-")
+            .replace("\u2013", "-")
+            .replace("\u2014", "-")
+            .replace("\ufe63", "-")
+            .replace("\uff0d", "-")
+        )
+
         # Strategy 1: Look for "Available Balance(Rs)" pattern (primary target)
-        # The page shows: "Available Balance(Rs)" followed by "₹568.07"
+        # Handles positive and negative, e.g. "Available Balance(Rs) ₹568.07", "Available Balance(Rs) -₹269.51"
         available_balance_patterns = [
-            r"Available\s+Balance\s*\(Rs\)\s*[₹]?\s*([\d,]+\.?\d*)",
-            r"Available\s+Balance\s*\(Rs\)\s*\n?\s*[₹]?([\d,]+\.?\d*)",
+            r"Available\s+Balance\s*(?:\(Rs\))?\s*:?\s*(-)?\s*(?:[₹]|Rs\.?|INR)?\s*(-)?\s*(\d[\d,]*(?:\.\d+)?)",
+            r"Available\s+Balance\s*(?:\(Rs\))?\s*\n\s*:?\s*(-)?\s*(?:[₹]|Rs\.?|INR)?\s*(-)?\s*(\d[\d,]*(?:\.\d+)?)",
         ]
 
         for pattern in available_balance_patterns:
-            match = re.search(pattern, page_text, re.IGNORECASE | re.DOTALL)
+            match = re.search(pattern, normalized_page_text, re.IGNORECASE)
             if match:
-                balance_str = match.group(1).replace(",", "")
+                num_str = match.group(3).replace(",", "").strip()
                 try:
-                    balance = float(balance_str)
+                    amount = float(num_str)
+                    is_negative = bool(match.group(1) or match.group(2))
+                    balance = -amount if is_negative else amount
                     logger.info("Available Balance found: ₹{:.2f}", balance)
                     return balance
                 except ValueError:
                     continue
 
-        # Strategy 2: Use Playwright to find the exact element
+        # Strategy 2: Use Playwright to find the exact element in the table
         try:
-            # Look for the label "Available Balance(Rs)" and get the value from the same row
+            # 2a: Look for sibling td directly following "Available Balance" td
+            target_cell = page.locator('xpath=//td[contains(., "Available Balance")]/following-sibling::td[1]')
+            if target_cell.count() > 0:
+                cell_text = target_cell.first.inner_text().strip()
+                balance = parse_balance_string(cell_text)
+                if balance is not None:
+                    if balance > 0 and target_cell.locator(".red-block").count() > 0:
+                        balance = -balance
+                    logger.info("Balance found from following table cell: ₹{:.2f}", balance)
+                    return balance
+
+            # 2b: Search all cells in the row containing "Available Balance(Rs)"
             balance_label = page.locator('text="Available Balance(Rs)"')
             if balance_label.count() > 0:
-                # Get the parent row and extract the value
                 row = balance_label.locator("xpath=ancestor::tr")
                 if row.count() > 0:
-                    # Get all cells in the row
                     cells = row.locator("td").all()
                     for cell in cells:
                         text = cell.inner_text().strip()
-                        match = re.search(r"[₹]?\s*([\d,]+\.?\d*)", text)
-                        if match:
-                            balance_str = match.group(1).replace(",", "")
-                            balance = float(balance_str)
+                        if "available balance" in text.lower():
+                            continue
+                        balance = parse_balance_string(text)
+                        if balance is not None:
+                            if balance > 0 and cell.locator(".red-block").count() > 0:
+                                balance = -balance
                             logger.info(
                                 "Balance found from table row: ₹{:.2f}",
                                 balance,
@@ -336,25 +360,28 @@ class SBPDCLChecker:
 
         # Strategy 3: Look for "Available Balance" with Rs suffix in page text
         try:
-            pattern = r"Available\s+Balance[^₹]*[₹]?\s*([\d,]+\.?\d*)"
-            match = re.search(pattern, page_text, re.IGNORECASE)
+            pattern = r"Available\s+Balance[^\d\n\r]{0,50}?(-)?\s*(?:[₹]|Rs\.?|INR)?\s*(-)?\s*(\d[\d,]*(?:\.\d+)?)"
+            match = re.search(pattern, normalized_page_text, re.IGNORECASE)
             if match:
-                balance_str = match.group(1).replace(",", "")
-                balance = float(balance_str)
+                num_str = match.group(3).replace(",", "").strip()
+                amount = float(num_str)
+                is_negative = bool(match.group(1) or match.group(2))
+                balance = -amount if is_negative else amount
                 logger.info("Balance found with fallback pattern: ₹{:.2f}", balance)
                 return balance
         except Exception as exc:
             logger.debug("Fallback pattern failed: {}", str(exc))
 
-        # Strategy 4: Look for balance in specific CSS class elements
+        # Strategy 4: Look for balance in specific CSS class elements (.red-block, .bill-amount, etc.)
         try:
             balance_elements = page.locator(_SELECTOR_BALANCE_VALUE).all()
             for elem in balance_elements:
-                text = elem.inner_text()
-                match = re.search(r"[\d,]+\.?\d*", text)
-                if match:
-                    balance_str = match.group(0).replace(",", "")
-                    balance = float(balance_str)
+                text = elem.inner_text().strip()
+                balance = parse_balance_string(text)
+                if balance is not None:
+                    class_attr = elem.get_attribute("class") or ""
+                    if "red-block" in class_attr and balance > 0:
+                        balance = -balance
                     logger.info("Balance found from element: ₹{:.2f}", balance)
                     return balance
         except Exception as exc:

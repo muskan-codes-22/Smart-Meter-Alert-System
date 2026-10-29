@@ -127,6 +127,7 @@ class EmailSender:
         Returns:
             True if email was sent successfully.
         """
+        balance_display = f"-₹{abs(balance):.2f}" if balance < 0 else f"₹{balance:.2f}"
         subject = f"SBPDCL Alert - {consumer_name} - Low Balance"
         body = f"""
 <html>
@@ -136,7 +137,7 @@ class EmailSender:
 
     <p>
         <b>Consumer:</b> {consumer_name}<br>
-        <b>Balance:</b> <strong>₹{balance:.2f}</strong><br>
+        <b>Balance:</b> <strong>{balance_display}</strong><br>
         <b>Action:</b> Recharge your account to avoid service disruption.
     </p>
 

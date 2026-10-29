@@ -65,13 +65,14 @@ def build_notification_message(
     """
     lang = consumer.language if consumer.language in _MESSAGES else "en"
     t = _MESSAGES[lang]
+    balance_display = f"-₹{abs(balance):.2f}" if balance < 0 else f"₹{balance:.2f}"
 
     return (
         f"{t['title']}\n\n"
         f"{t['greeting']}\n\n"
         f"{t['body']}\n\n"
         f"{t['ca_label']}: {consumer.ca}\n"
-        f"{t['balance_label']}: <b>₹{balance:.2f}</b>\n\n"
+        f"{t['balance_label']}: <b>{balance_display}</b>\n\n"
         f"{t['action']}\n\n"
         f"{t['footer']}"
     )
@@ -82,6 +83,14 @@ def build_notification_message(
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    import sys
+    import io
+
+    if sys.platform == "win32":
+        sys.stdout = io.TextIOWrapper(
+            sys.stdout.buffer, encoding="utf-8", errors="replace"
+        )
+
     from src.config import ConsumerConfig
 
     print("=" * 50)

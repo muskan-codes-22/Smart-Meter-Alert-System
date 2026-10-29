@@ -250,6 +250,16 @@ class NotificationStateManager:
                 _log().info("Notification not required (first time, above threshold)")
                 return False
 
+        # Critical alert: Balance dropped into negative territory (< 0)
+        if prev_balance is not None and prev_balance >= 0 and current_balance < 0:
+            _log().info(
+                "Notification required: {} balance went negative ({} -> {})",
+                consumer_name,
+                prev_balance,
+                current_balance,
+            )
+            return True
+
         # Case 1: Transition from above to below threshold
         if not prev_below and current_below:
             _log().info(
