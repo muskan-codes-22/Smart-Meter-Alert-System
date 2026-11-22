@@ -107,10 +107,10 @@ class TestStateTransitions:
         manager = NotificationStateManager(state_file)
 
         # Previously positive balance 269.51 above threshold 100.0
-        manager.update_state("Nana - Shop", 269.51, 100.0, notification_sent=False)
+        manager.update_state("Local Shop", 269.51, 100.0, notification_sent=False)
 
         # Now balance drops to -269.51
-        should_notify = manager.should_send_notification("Nana - Shop", -269.51, 100.0)
+        should_notify = manager.should_send_notification("Local Shop", -269.51, 100.0)
         assert should_notify is True
 
     def test_positive_below_threshold_to_negative_triggers_notification(self, tmp_path):
@@ -118,10 +118,10 @@ class TestStateTransitions:
         manager = NotificationStateManager(state_file)
 
         # Previously below threshold 50.0 (below 100.0), already notified
-        manager.update_state("Nana - Shop", 50.0, 100.0, notification_sent=True)
+        manager.update_state("Local Shop", 50.0, 100.0, notification_sent=True)
 
         # Now balance drops below 0 to -269.51
-        should_notify = manager.should_send_notification("Nana - Shop", -269.51, 100.0)
+        should_notify = manager.should_send_notification("Local Shop", -269.51, 100.0)
         assert should_notify is True
 
 
