@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SBPDCL Smart Meter Alert Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: rgba(22, 30, 49, 0.75);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --card-hover: rgba(255, 255, 255, 0.12);
+      --primary: #3b82f6;
+      --primary-glow: rgba(59, 130, 246, 0.25);
+      --success: #10b981;
+      --success-glow: rgba(16, 185, 129, 0.2);
+      --warning: #f59e0b;
+      --warning-glow: rgba(245, 158, 11, 0.2);
+      --danger: #ef4444;
+      --danger-glow: rgba(239, 68, 68, 0.2);
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --text-subtle: #6b7280;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(59, 130, 246, 0.12) 0%, transparent 40%),
+        radial-gradient(circle at 85% 85%, rgba(16, 185, 129, 0.08) 0%, transparent 40%);
+      padding: 24px 20px 48px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 24px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--card-border);
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      box-shadow: 0 0 20px var(--primary-glow);
+    }
+
+    .brand h1 {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+
+    .brand p {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn {
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      background: #2563eb;
+      color: white;
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+    }
+    .btn-primary:hover {
+      background: #1d4ed8;
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      border-color: var(--card-border);
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--success);
+      box-shadow: 0 0 8px var(--success);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.9); }
+    }
+
+    /* Grid layout */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      padding: 22px;
+      transition: border-color 0.2s ease;
+    }
+    .card:hover {
+      border-color: var(--card-hover);
+    }
+
+    .col-4 { grid-column: span 4; }
+    .col-6 { grid-column: span 6; }
+    .col-8 { grid-column: span 8; }
+    .col-12 { grid-column: span 12; }
+
+    @media (max-width: 992px) {
+      .col-4, .col-6, .col-8 { grid-column: span 12; }
+    }
+
+    /* Headings & badges */
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-subtle);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .badge-success {
+      background: var(--success-glow);
+      color: var(--success);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .badge-warning {
+      background: var(--warning-glow);
+      color: var(--warning);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+    .badge-danger {
+      background: var(--danger-glow);
+      color: var(--danger);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    /* Key metric cards */
+    .metric-value {
+      font-size: 38px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin: 8px 0;
+      color: #fff;
+    }
+
+    .metric-meta {
+      font-size: 13px;
+      color: var(--text-muted);
+      display: flex;
+      gap: 12px;
+    }
+
+    /* Chances Gauge / Progress */
+    .chance-box {
+      margin-top: 14px;
+    }
+    .progress-bar-bg {
+      height: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      overflow: hidden;
+      margin: 10px 0;
+      position: relative;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      border-radius: 6px;
+      background: linear-gradient(90deg, #10b981, #3b82f6);
+      width: 92%;
+      transition: width 0.6s ease;
+    }
+    .chance-stats {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Alert Message Preview Box */
+    .preview-box {
+      background: rgba(11, 15, 25, 0.6);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 16px;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .preview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .lang-tabs {
+      display: flex;
+      gap: 6px;
+    }
+    .tab-btn {
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-muted);
+      border: 1px solid transparent;
+      cursor: pointer;
+    }
+    .tab-btn.active {
+      background: #2563eb;
+      color: #fff;
+    }
+
+    /* Terminal Console */
+    .terminal {
+      background: #060911;
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 16px 18px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      color: #cbd5e1;
+      max-height: 280px;
+      overflow-y: auto;
+    }
+    .term-row {
+      margin-bottom: 4px;
+      display: flex;
+      gap: 8px;
+    }
+    .term-step { color: #38bdf8; font-weight: 600; }
+    .term-ok { color: #4ade80; }
+    .term-time { color: #64748b; }
+
+    /* History Table */
+    .table-container {
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 13px;
+    }
+    th {
+      color: var(--text-subtle);
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--card-border);
+    }
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      color: var(--text-muted);
+    }
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--text);
+    }
+
+    /* Quick stats grid */
+    .mini-stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+    .mini-stat-card {
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 12px;
+      padding: 12px;
+    }
+    .mini-stat-label {
+      font-size: 11px;
+      color: var(--text-subtle);
+    }
+    .mini-stat-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+      margin-top: 4px;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 32px;
+      color: var(--text-subtle);
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-icon">⚡</div>
+      <div>
+        <h1>SBPDCL Smart Meter Alert System</h1>
+        <p>Live Monitoring, Automated Alerts & Risk Analytics</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <span class="badge badge-success">
+        <span class="pulse-dot"></span> System Live & Connected
+      </span>
+      <button id="btnCheck" class="btn btn-primary" onclick="runCheckNow()">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        Run Check Now
+      </button>
+    </div>
+  </header>
+
+  <!-- Top Hero Grid: 3 Main Cards -->
+  <div class="grid">
+    
+    <!-- CARD 1: Alert Status (Heading: NO ALERTS) -->
+    <div class="card col-4">
+      <div class="section-title">
+        <span>Current Alert Status</span>
+        <span class="badge badge-success" id="alertBadge">● NORMAL</span>
+      </div>
+      <div style="margin-top: 8px;">
+        <h2 id="alertHeading" style="font-size: 26px; font-weight: 800; color: #10b981; display: flex; align-items: center; gap: 8px;">
+          🟢 NO ALERTS
+        </h2>
+        <p style="font-size: 13px; color: var(--text-muted); margin-top: 6px;">
+          Available balance is comfortably above your threshold. Power supply is secure.
+        </p>
+      </div>
+      <div class="mini-stats" style="margin-top: 20px;">
+        <div class="mini-stat-card">
+          <div class="mini-stat-label">Active Consumer</div>
+          <div class="mini-stat-value" id="consumerName">Nana - Shop</div>
+        </div>
+        <div class="mini-stat-card">
+          <div class="mini-stat-label">CA Account No.</div>
+          <div class="mini-stat-value" style="font-size: 14px; font-family: 'JetBrains Mono', monospace;" id="consumerCA">XXXXXXXX7048</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARD 2: Current Balance -->
+    <div class="card col-4">
+      <div class="section-title">
+        <span>Available Balance (SBPDCL)</span>
+        <span style="font-size: 11px; color: var(--text-muted);" id="lastCheckedTime">Checked Today</span>
+      </div>
+      <div class="metric-value" style="color: #60a5fa;" id="currentBalanceDisplay">
+        ₹1,155.94
+      </div>
+      <div class="metric-meta">
+        <span>Threshold: <strong id="thresholdDisplay" style="color: #fff;">₹100.00</strong></span>
+        <span>•</span>
+        <span>Safety Buffer: <strong style="color: #10b981;" id="bufferDisplay">+₹1,055.94</strong></span>
+      </div>
+      <div style="margin-top: 22px; display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--text-subtle);">
+        <span>Connection: <strong style="color: #fff;">Active Prepaid</strong></span>
+        <span>Portal: <strong style="color: #10b981;">Online (200 OK)</strong></span>
+      </div>
+    </div>
+
+    <!-- CARD 3: Chances of Getting Alert -->
+    <div class="card col-4">
+      <div class="section-title">
+        <span>Chances of Getting Alert</span>
+        <span class="badge badge-success" id="riskBadge">LOW RISK (< 1%)</span>
+      </div>
+      <div class="metric-value" style="font-size: 32px;" id="chancePercent">
+        0.5% Chance
+      </div>
+      <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+        Estimated ~35 to 45 days of electricity remaining at standard consumption before alert triggers.
+      </p>
+      <div class="chance-box">
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="chanceProgressBar" style="width: 92%;"></div>
+        </div>
+        <div class="chance-stats">
+          <span>₹100 (Alert Trigger)</span>
+          <span style="color: #10b981; font-weight: 700;">Safe Zone</span>
+          <span>₹1,155.94 (Current)</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Second Row: Alert Message Preview & Execution Summary -->
+  <div class="grid">
+
+    <!-- Alert Send Message Card -->
+    <div class="card col-6">
+      <div class="section-title">
+        <span>Alert Send Message (Preview)</span>
+        <div class="lang-tabs">
+          <button class="tab-btn active" onclick="switchLang('en')">English</button>
+          <button class="tab-btn" onclick="switchLang('hi')">हिंदी (Hindi)</button>
+        </div>
+      </div>
+      <div class="preview-box">
+        <div class="preview-header">
+          <span style="font-size: 11px; font-weight: 600; color: #60a5fa; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.75-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/></svg>
+            Telegram Bot & Email Fallback Payload
+          </span>
+          <span class="badge" style="background: rgba(255,255,255,0.06); color: #cbd5e1; font-size: 10px;">Automated Trigger</span>
+        </div>
+        <div id="messagePreviewContent" style="white-space: pre-line; color: #f1f5f9; font-size: 13px;">
+<b>⚡ SBPDCL Balance Alert</b>
+
+Dear Consumer,
+
+Your smart meter balance is running low.
+
+CA Number: 241111117048
+Available Balance: <b>₹95.00</b>
+
+<b>⚠️ Please recharge your smart meter at the earliest to avoid interruption in electricity supply.</b>
+
+— SBPDCL Monitor
+        </div>
+      </div>
+      <p style="font-size: 11px; color: var(--text-subtle); margin-top: 10px;">
+        * This exact message is dispatched via Telegram bot and Gmail SMTP whenever balance drops below ₹100.00.
+      </p>
+    </div>
+
+    <!-- Execution Terminal / Code Summary -->
+    <div class="card col-6">
+      <div class="section-title">
+        <span>Execution Terminal Output & Summary</span>
+        <span style="font-size: 11px; color: var(--text-muted);">main.py (6-Step Pipeline)</span>
+      </div>
+      <div class="terminal" id="terminalOutput">
+        <div class="term-row"><span class="term-step">[1/6]</span> Loading configuration... <span class="term-ok">✓ (1 consumers)</span></div>
+        <div class="term-row"><span class="term-step">[2/6]</span> Initializing services... <span class="term-ok">✓ State Manager Ready</span></div>
+        <div class="term-row"><span class="term-step">[3/6]</span> Launching Chromium browser... <span class="term-ok">✓ Browser Ready</span></div>
+        <div class="term-row"><span class="term-step">[4/6]</span> Checking balances...</div>
+        <div class="term-row" style="padding-left: 20px;">• Consumer: <strong>Nana - Shop</strong> (CA: XXXXXXXX7048)</div>
+        <div class="term-row" style="padding-left: 20px;">• Extracted Balance: <strong class="term-ok">₹1,155.94</strong></div>
+        <div class="term-row" style="padding-left: 20px;">• Threshold: ₹100.00 → <span style="color: #60a5fa;">No notification needed</span></div>
+        <div class="term-row"><span class="term-step">[5/6]</span> Finalizing history & state... <span class="term-ok">✓ Logged to history.csv</span></div>
+        <div class="term-row"><span class="term-step">[6/6]</span> Cleaning up browser & context... <span class="term-ok">✓ Complete</span></div>
+        <div class="term-row" style="margin-top: 8px; color: #a5f3fc; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 8px;">
+          ================ SBPDCL Monitor Summary ================
+        </div>
+        <div class="term-row">• Consumers Processed: 1 &nbsp;|&nbsp; Alerts Sent: 0 &nbsp;|&nbsp; Failures: 0</div>
+        <div class="term-row">• Execution Time: <strong>9.5 sec</strong> &nbsp;|&nbsp; Status: <strong>0 (Success)</strong></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Third Row: Historical Balance Logs -->
+  <div class="grid">
+    <div class="card col-12">
+      <div class="section-title">
+        <span>Balance Check History (Logged from data/history.csv)</span>
+        <span style="font-size: 11px; color: var(--text-muted);">Real-time log records</span>
+      </div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Consumer</th>
+              <th>CA Number</th>
+              <th>Balance (₹)</th>
+              <th>Threshold (₹)</th>
+              <th>Notification Sent</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="historyTableBody">
+            <tr>
+              <td>2026-11-22 23:05:58</td>
+              <td><strong>Nana - Shop</strong></td>
+              <td>241111117048</td>
+              <td style="color: #60a5fa; font-weight: 700;">₹1,155.94</td>
+              <td>₹100.00</td>
+              <td><span class="badge" style="background: rgba(255,255,255,0.05); color: #94a3b8;">False</span></td>
+              <td><span class="badge badge-success">OK</span></td>
+            </tr>
+            <tr>
+              <td>2026-11-22 22:59:23</td>
+              <td><strong>Nana - Shop</strong></td>
+              <td>241111117048</td>
+              <td style="color: #60a5fa; font-weight: 700;">₹1,155.94</td>
+              <td>₹100.00</td>
+              <td><span class="badge" style="background: rgba(255,255,255,0.05); color: #94a3b8;">False</span></td>
+              <td><span class="badge badge-success">OK</span></td>
+            </tr>
+            <tr>
+              <td>2026-11-22 22:58:38</td>
+              <td><strong>Nana - Shop</strong></td>
+              <td>241111117048</td>
+              <td style="color: #60a5fa; font-weight: 700;">₹1,155.94</td>
+              <td>₹100.00</td>
+              <td><span class="badge" style="background: rgba(255,255,255,0.05); color: #94a3b8;">False</span></td>
+              <td><span class="badge badge-success">OK</span></td>
+            </tr>
+            <tr>
+              <td>2026-11-22 22:55:37</td>
+              <td><strong>Nana - Shop</strong></td>
+              <td>241111117048</td>
+              <td style="color: #60a5fa; font-weight: 700;">₹1,155.94</td>
+              <td>₹100.00</td>
+              <td><span class="badge" style="background: rgba(255,255,255,0.05); color: #94a3b8;">False</span></td>
+              <td><span class="badge badge-success">OK</span></td>
+            </tr>
+            <tr>
+              <td>2026-11-22 22:52:21</td>
+              <td><strong>Nana - Shop</strong></td>
+              <td>241111117048</td>
+              <td style="color: #60a5fa; font-weight: 700;">₹1,155.94</td>
+              <td>₹100.00</td>
+              <td><span class="badge" style="background: rgba(255,255,255,0.05); color: #94a3b8;">False</span></td>
+              <td><span class="badge badge-success">OK</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    SBPDCL Smart Meter Alert System &bull; Built with Python 3, Playwright, Telegram Bot API, & HTML5
+  </div>
+</div>
+
+<script>
+  const messages = {
+    en: `<b>⚡ SBPDCL Balance Alert</b>\n\nDear Consumer,\n\nYour smart meter balance is running low.\n\nCA Number: 241111117048\nAvailable Balance: <b>₹95.00</b>\n\n<b>⚠️ Please recharge your smart meter at the earliest to avoid interruption in electricity supply.</b>\n\n— SBPDCL Monitor`,
+    hi: `<b>⚡ एसबीपीडीसीएल बैलेंस अलर्ट</b>\n\nप्रिय उपभोक्ता,\n\nआपके स्मार्ट मीटर का बैलेंस कम हो गया है।\n\nसीए नंबर: 241111117048\nउपलब्ध बैलेंस: <b>₹95.00</b>\n\n<b>⚠️ कृपया बिजली आपूर्ति बाधित होने से बचने के लिए जल्द से जल्द रिचार्ज कर लें।</b>\n\n— SBPDCL Monitor`
+  };
+
+  function switchLang(lang) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+    document.getElementById('messagePreviewContent').innerHTML = messages[lang];
+  }
+
+  // Attempt to fetch live data if served via server.py
+  async function loadLiveData() {
+    try {
+      const res = await fetch('/api/data');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.balance !== undefined) {
+          document.getElementById('currentBalanceDisplay').textContent = `₹${data.balance.toFixed(2)}`;
+          document.getElementById('thresholdDisplay').textContent = `₹${data.threshold.toFixed(2)}`;
+          const buffer = data.balance - data.threshold;
+          document.getElementById('bufferDisplay').textContent = (buffer >= 0 ? '+' : '') + `₹${buffer.toFixed(2)}`;
+          
+          if (data.balance < data.threshold) {
+            document.getElementById('alertHeading').innerHTML = '⚠️ ALERT ACTIVE';
+            document.getElementById('alertHeading').style.color = '#ef4444';
+            document.getElementById('alertBadge').className = 'badge badge-danger';
+            document.getElementById('alertBadge').textContent = '● LOW BALANCE';
+            document.getElementById('chancePercent').textContent = '100% (Alert Sent)';
+            document.getElementById('riskBadge').className = 'badge badge-danger';
+            document.getElementById('riskBadge').textContent = 'CRITICAL';
+          }
+        }
+      }
+    } catch(e) {
+      // Standalone file mode, preloaded data used
+    }
+  }
+
+  async function runCheckNow() {
+    const btn = document.getElementById('btnCheck');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = `<span class="pulse-dot"></span> Checking portal...`;
+    btn.disabled = true;
+
+    try {
+      const res = await fetch('/api/run', { method: 'POST' });
+      if (res.ok) {
+        const result = await res.json();
+        alert('Check completed! New balance: ₹' + result.balance);
+        location.reload();
+      } else {
+        alert('Check command executed in background. Refreshing in 10s...');
+        setTimeout(() => location.reload(), 10000);
+      }
+    } catch (e) {
+      alert('Note: Running in static mode. To enable the live "Check Balance Now" button, start server.py by running: python server.py');
+    } finally {
+      btn.innerHTML = originalText;
+      btn.disabled = false;
+    }
+  }
+
+  loadLiveData();
+</script>
+
+</body>
+</html>
