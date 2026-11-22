@@ -1,7 +1,8 @@
 # Run main.py hidden via PowerShell, capturing output to log
-$logFile = "C:\PK\Projects\sbpdcl-monitor\logs\task_scheduler.log"
-$python = "C:\PK\Projects\sbpdcl-monitor\.venv\Scripts\python.exe"
-$script = "C:\PK\Projects\sbpdcl-monitor\main.py"
+$rootDir = $PSScriptRoot
+$logFile = Join-Path $rootDir "logs\task_scheduler.log"
+$python = Join-Path $rootDir ".venv\Scripts\python.exe"
+$script = Join-Path $rootDir "main.py"
 
 function Strip-Ansi {
     param([string]$text)
@@ -31,7 +32,7 @@ $env:SBPDCL_TASK_SCHEDULER = "1"
 $psi = New-Object System.Diagnostics.ProcessStartInfo
 $psi.FileName = $python
 $psi.Arguments = "`"$script`""
-$psi.WorkingDirectory = "C:\PK\Projects\sbpdcl-monitor"
+$psi.WorkingDirectory = $rootDir
 $psi.UseShellExecute = $false
 $psi.RedirectStandardOutput = $true
 $psi.RedirectStandardError = $true
